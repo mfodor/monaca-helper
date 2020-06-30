@@ -1,0 +1,162 @@
+#!/bin/bash
+
+if [[ -z "$PATH_MONACA_SERVER" ]]; then
+	PATH_MONACA_SERVER=$(PWD)
+fi
+
+function usage() {
+	echo ""
+
+	echo "Usage: monaca <command> [params]"
+	echo ""
+	echo "Available commands:"
+	echo "  home                 Print Monaca server directory"
+	echo "  cd                   Go to Monaca dir. If you run it without sourcing the command"
+	echo "                           it will not take effect. \`. monaca cd\`"
+	echo "  u|up|start           Start Monaca ecosys"
+	echo "  d|down|stop          Stop Monaca ecosys"
+	echo "  r|restart            Restart Monaca ecosys"
+	echo "  rf|restart-frontend  Restart monaca-frontend container"
+	echo "  c|reconfigure        Stop Monaca ecosys, run configure then start"
+	echo "  pull                 Do a pull in Monaca server and in each installed app"
+	echo "  build|packager       Stop Monaca ecosys, reconfigure then build docker images"
+	echo "    [up]               Start Monaca ecosys after image build"
+	echo "  cc|cache             Clear/Rebuild cache in web-server"
+	echo "  debug [out]          Install XDebug into web-server. If out is passed xdebug will"
+	echo "                           be configured to access outside of the docker container."
+	echo "  run                  Run command in web-server with bash (only $1)"
+
+	echo ""
+}
+function get_ip() {
+	local A=$(ifconfig |grep inet|grep broadcast | sed 's/^[^ ]* \([^ ]*\) .*$/\1/')
+	echo -n "$A"
+}
+function cdm() {
+	cd "$PATH_MONACA_SERVER"
+}
+function up() { # Monaca start
+  cdm
+  npm run configure -- --env=local
+  source ./scripts/initenv.sh
+  docker-compose up -d
+}
+function down() { # Monaca stop
+  cdm
+  docker-compose down $@
+}
+function restart() { # Monaca Restart
+  cdm
+  docker-compose restart $@
+}
+function restart_frontend() { # Monaca Restart Frontend
+  restart monaca-frontend $@
+}
+function configure() { # Monaca configure
+  cdm
+  npm run configure -- --env=local
+  . ./scripts/initenv.sh
+}
+function reconfigure() { # Monaca reConfigure
+  down
+  cdm
+  npm run configure -- --env=local
+  . ./scripts/initenv.sh
+  up
+}
+function pull() {
+	cdm
+	cd apps
+	for dir in $(ls -1); do
+		if [[ -d "$dir/.git" ]]; then
+			echo "pulling in $(pwd)"
+			cd $dir
+			git pull
+			cd ..
+		else
+			echo 'not a git repository $(pwd)'
+		fi
+	done
+}
+function build_images() {
+	cdm
+	down
+	npm run configure -- --env=local
+	source ./scripts/initenv.sh
+	./packager/build-images.sh
+	if [[ -n "$1" && "$1" = 'up' ]]; then
+		up
+	fi
+}
+function run_in_web_server() {
+	echo "$1" | docker exec -i web-server bash
+}
+function rebuild_cache() {
+	run_in_web_server 'cd monaca.mobi; ./symfony cc'
+}
+function webserver_install_xdebug() {
+	if [[ -z "$1" ]]; then
+		local OUTSIDE=0
+	else
+		local OUTSIDE=1
+		local IP="$1"
+	fi
+	run_in_web_server 'pecl install xdebug-2.5.5'
+	if [[ $? -ne 0 ]]; then
+		echo ""
+		echo "Xdebug is already installed or the install failed."
+		exit 1
+	fi
+
+	run_in_web_server "echo '; Enable Xdebug for php processes launched by PHP-FPM' >> /etc/php5/fpm/php.ini"
+	run_in_web_server "echo 'zend_extension=/usr/lib/php5/20131226/xdebug.so' >> /etc/php5/fpm/php.ini"
+	run_in_web_server "echo 'xdebug.remote_enable=1' >> /etc/php5/fpm/php.ini"
+	run_in_web_server "echo 'xdebug.remote_autostart=1' >> /etc/php5/fpm/php.ini"
+	run_in_web_server "echo 'xdebug.remote_log=/var/log/xdebug-fpm.log' >> /etc/php5/fpm/php.ini"
+	if [[ $OUTSIDE -eq 1 ]]; then
+		run_in_web_server "echo 'xdebug.remote_connect_back=0' >> /etc/php5/fpm/php.ini"
+		run_in_web_server "echo 'xdebug.remote_host=$IP' >> /etc/php5/fpm/php.ini"
+	fi
+	echo "xdebug config appended to /etc/php5/fpm/php.ini"
+
+	run_in_web_server "echo '; Enable Xdebug for php processes launched by php command' >> /etc/php5/cli/php.ini"
+	run_in_web_server "echo 'zend_extension=/usr/lib/php5/20131226/xdebug.so' >> /etc/php5/cli/php.ini"
+	run_in_web_server "echo 'xdebug.remote_enable=1' >> /etc/php5/cli/php.ini"
+	run_in_web_server "echo 'xdebug.remote_autostart=1' >> /etc/php5/cli/php.ini"
+	run_in_web_server "echo 'xdebug.remote_log=/var/log/xdebug-fpm.log' >> /etc/php5/cli/php.ini"
+	if [[ $OUTSIDE -eq 1 ]]; then
+		run_in_web_server "echo 'xdebug.remote_connect_back=0' >> /etc/php5/cli/php.ini"
+		run_in_web_server "echo 'xdebug.remote_host=$IP' >> /etc/php5/cli/php.ini"
+	fi
+	echo "xdebug config appended to /etc/php5/cli/php.ini"
+
+	run_in_web_server "/etc/init.d/php5-fpm restart"
+}
+
+###########
+# Program #
+###########
+
+if [[ -z "$1" ]]; then
+	usage
+	exit 1
+fi
+
+command="$1"
+shift
+
+case $command in
+	home) echo -n "$PATH_MONACA_SERVER"; exit 0 ;;
+	cd) echo "If you run it without sourcing the command it will not take effect."; cdm ;;
+	u|up|start) up "$@" ;;
+	d|down|stop) down "$@" ;;
+	r|restart) restart "$@" ;;
+	rf|restart-frontend) restart_frontend "$@" ;;
+	c|reconfigure) reconfigure "$@" ;;
+	pull) pull "$@" ;;
+	build|packager) build_images "$@" ;;
+	cc|cache) rebuild_cache "$@" ;;
+	debug) webserver_install_xdebug "$@" ;;
+	run) run_in_web_server "$@" ;;
+	*) echo "unknown command: $command"; usage ;;
+esac
