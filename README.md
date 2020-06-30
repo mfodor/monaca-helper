@@ -62,19 +62,32 @@ effect because the script is run in separate shell.
 
 ### u|up|start
 
-Start Monaca ecosystem. It will call `docker-compose up -d` in server root.
+Start Monaca ecosystem. It will call configure with local setting and then
+`docker-compose up -d` in server root.
+
+Any arguments are passed to compose command so you can start specific
+container(s).
 
 ### d|down|stop
 
-Stop Monaca ecosystem.  It will call `docker-compose down` in server root.
+Stop Monaca ecosystem. It will call `docker-compose down` in server root.
+
+Any arguments are passed to compose command so you can stop specific
+container(s).
 
 ### r|restart
 
-Restart Monaca ecosystem
+Restart Monaca ecosystem. It will call `docker-compose restart` in server root.
+
+Any arguments are passed to compose command so you can restart specific
+container(s).
 
 ### rf|restart-frontend
 
-Restart monaca-frontend container
+Restart monaca-frontend container. Shorthand to `monaca restart monaca-frontend`
+
+Any arguments are passed to compose command so you can start specific
+container(s).
 
 ### c|reconfigure
 
@@ -82,7 +95,7 @@ Stop Monaca ecosystem, run configure then start
 
 ### pull
 
-Do a pull in Monaca server and in each installed app
+Do a pull in Monaca server and in each installed app in `apps` subfolder.
 
 ### build|packager
 
@@ -108,6 +121,10 @@ Install XDebug into web-server.
 
 If out is passed xdebug will be configured to be accessible outside of the
 docker container. (e.g. in your IDE)
+
+```bash
+monaca debug out
+```
 
 ### run
 

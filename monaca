@@ -39,7 +39,7 @@ function up() { # Monaca start
   cdm
   npm run configure -- --env=local
   source ./scripts/initenv.sh
-  docker-compose up -d
+  docker-compose up -d $@
 }
 function down() { # Monaca stop
   cdm
