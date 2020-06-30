@@ -108,6 +108,12 @@ function webserver_install_xdebug() {
 		exit 1
 	fi
 
+	# POSSIBLE FEATURE: reconfigure
+	# Configs can be deleted like this
+	# sed -i '' '/^; Enable Xdebug for php processes launched by /d' /etc/php5/fpm/php.ini
+	# sed -i '' '/^zend_extension=/usr/lib/php5/2020131226/xdebug.so$/d' /etc/php5/fpm/php.ini
+	# sed -i '' '/^xdebug.remote_[enable|autostart|log|connect_back|host]=/d' /etc/php5/fpm/php.ini
+
 	run_in_web_server "echo '; Enable Xdebug for php processes launched by PHP-FPM' >> /etc/php5/fpm/php.ini"
 	run_in_web_server "echo 'zend_extension=/usr/lib/php5/20131226/xdebug.so' >> /etc/php5/fpm/php.ini"
 	run_in_web_server "echo 'xdebug.remote_enable=1' >> /etc/php5/fpm/php.ini"
