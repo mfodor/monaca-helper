@@ -22,9 +22,9 @@ function usage() {
 	echo "  build|packager       Stop Monaca ecosys, reconfigure then build docker images"
 	echo "    [up]               Start Monaca ecosys after image build"
 	echo "  cc|cache             Clear/Rebuild cache in web-server"
-	echo "  debug [out]          Install XDebug into web-server. If out is passed xdebug will"
-	echo "                           be configured to access outside of the docker container."
-	echo "  run                  Run command in web-server with bash (only $1)"
+	echo "  debug [host_ip]      Install XDebug into web-server. If host_ip is passed: xdebug"
+	echo "                       will be configured to be accessible outside of the container."
+	echo "  run                  Run command in web-server with bash (only \$1)"
 
 	echo ""
 }
@@ -129,7 +129,7 @@ function webserver_install_xdebug() {
 	run_in_web_server "echo 'zend_extension=/usr/lib/php5/20131226/xdebug.so' >> /etc/php5/cli/php.ini"
 	run_in_web_server "echo 'xdebug.remote_enable=1' >> /etc/php5/cli/php.ini"
 	run_in_web_server "echo 'xdebug.remote_autostart=1' >> /etc/php5/cli/php.ini"
-	run_in_web_server "echo 'xdebug.remote_log=/var/log/xdebug-fpm.log' >> /etc/php5/cli/php.ini"
+	run_in_web_server "echo 'xdebug.remote_log=/var/log/xdebug-cli.log' >> /etc/php5/cli/php.ini"
 	if [[ $OUTSIDE -eq 1 ]]; then
 		run_in_web_server "echo 'xdebug.remote_connect_back=0' >> /etc/php5/cli/php.ini"
 		run_in_web_server "echo 'xdebug.remote_host=$IP' >> /etc/php5/cli/php.ini"
